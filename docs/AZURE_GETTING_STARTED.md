@@ -46,6 +46,8 @@ Use the Azure Portal to create these resources.
    - `AZURE_OPENAI_ENDPOINT` (resource endpoint)
    - `AZURE_OPENAI_DEPLOYMENT` (model deployment name)
 
+> Note: This endpoint is for the Foundry/OpenAI chat model only. It is not the same as Azure Search.
+
 ### 1.2 Create an Azure AI Search service
 
 1. Search for **Azure AI Search** in the Azure Portal.
@@ -54,8 +56,10 @@ Use the Azure Portal to create these resources.
    - `content` as searchable text
    - `source` or `id` as a metadata field
 4. Note these values:
-   - `AZURE_SEARCH_ENDPOINT`
-   - `AZURE_SEARCH_INDEX`
+   - `AZURE_SEARCH_ENDPOINT` (search service endpoint)
+   - `AZURE_SEARCH_INDEX` (index name)
+
+> Note: Azure Search is a separate resource from Foundry. The app uses Azure Search only for RAG retrieval.
 
 ### 1.3 Create a Cosmos DB account
 
@@ -96,6 +100,10 @@ AZURE_SEARCH_KEY=<your-search-key>
 COSMOS_ENDPOINT=https://<your-cosmos-account>.documents.azure.com:443/
 COSMOS_KEY=<your-cosmos-key>
 ```
+
+> Important: `AZURE_OPENAI_ENDPOINT` and `AZURE_SEARCH_ENDPOINT` are different Azure resources.
+> - Use the Foundry/OpenAI endpoint for `AZURE_OPENAI_ENDPOINT`.
+> - Use the AI Search service endpoint for `AZURE_SEARCH_ENDPOINT`.
 
 If you use Key Vault, also add:
 
