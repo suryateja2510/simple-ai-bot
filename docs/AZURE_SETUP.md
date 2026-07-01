@@ -1,77 +1,94 @@
-# Azure Setup
+# Azure Setup for Simple AI Bot
 
-This guide explains how to connect the bot to Azure AI Foundry, Azure AI Search, Cosmos DB, Key Vault, and managed identity.
+This guide is written for beginners. It shows the simplest way to connect the app to Azure so you can test it locally with Azure endpoints.
 
-## Configuration Modes
+## What this app needs from Azure
 
-The backend supports two Azure authentication modes.
+The app uses Azure for these services:
 
-### API Key Mode
+- Azure OpenAI / Foundry model deployment for chat responses
+- Azure AI Search for retrieval (RAG)
+- Cosmos DB for session and episodic memory storage
+- Optional Key Vault for secrets
 
-Best for local development and first tests.
+You do not need app login or user authentication for this POC.
+
+## Quick start: local Azure test
+
+1. Open a terminal.
+2. Go to `apps/api`.
+3. Copy the env example:
+
+```powershell
+cd apps/api
+Copy-Item .env.example .env
+```
+
+4. Open `apps/api/.env` and set:
 
 ```env
 USE_AZURE_SERVICES=true
 AZURE_AUTH_MODE=api_key
 ```
 
-You can either put keys directly in `.env`:
+5. Fill in your Azure values:
 
 ```env
-AZURE_OPENAI_KEY=
-AZURE_SEARCH_KEY=
-COSMOS_KEY=
+AZURE_OPENAI_ENDPOINT=https://<your-openai-or-foundry-endpoint>.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=<your-model-deployment-name>
+AZURE_OPENAI_KEY=<your-openai-api-key>
+AZURE_SEARCH_ENDPOINT=https://<your-search-service>.search.windows.net
+AZURE_SEARCH_INDEX=<your-index-name>
+AZURE_SEARCH_KEY=<your-search-api-key>
+COSMOS_ENDPOINT=https://<your-cosmos-account>.documents.azure.com:443/
+COSMOS_KEY=<your-cosmos-key>
 ```
 
-Or store those keys in Key Vault and set:
+6. Save the file.
+7. Start the backend and frontend.
+
+## Run the app locally
+
+### Backend
+
+```powershell
+cd apps/api
+py -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### Frontend
+
+```powershell
+cd apps/web
+npm install
+npm run dev
+```
+
+Open the frontend at `http://localhost:5173`.
+
+## How the app uses Azure
+
+- `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_KEY` -> chat model
+- `AZURE_SEARCH_ENDPOINT` + `AZURE_SEARCH_KEY` -> search retrieval
+- `COSMOS_ENDPOINT` + `COSMOS_KEY` -> session and memory storage
+
+The app can run locally with this setup. It does not require user authentication.
+
+## Optional: use Azure Key Vault
+
+If you prefer not to store keys in `.env`, use Key Vault.
+
+In `apps/api/.env`:
 
 ```env
 USE_KEY_VAULT=true
 KEY_VAULT_URL=https://<your-vault>.vault.azure.net/
 ```
 
-### Managed Identity Mode
-
-Best for Azure App Service, Container Apps, AKS, or any deployed Azure host with managed identity enabled.
-
-```env
-USE_AZURE_SERVICES=true
-AZURE_AUTH_MODE=managed_identity
-USE_KEY_VAULT=true
-KEY_VAULT_URL=https://<your-vault>.vault.azure.net/
-```
-
-For a user-assigned managed identity, also set:
-
-```env
-MANAGED_IDENTITY_CLIENT_ID=<identity-client-id>
-```
-
-Leave `MANAGED_IDENTITY_CLIENT_ID` empty when using a system-assigned managed identity.
-
-## Required Settings
-
-```env
-AZURE_OPENAI_ENDPOINT=https://<openai-or-foundry-resource>.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT=<chat-model-deployment-name>
-AZURE_SEARCH_ENDPOINT=https://<search-service>.search.windows.net
-AZURE_SEARCH_INDEX=<index-name>
-COSMOS_ENDPOINT=https://<cosmos-account>.documents.azure.com:443/
-```
-
-In `api_key` mode, provide these directly or through Key Vault:
-
-```env
-AZURE_OPENAI_KEY=
-AZURE_SEARCH_KEY=
-COSMOS_KEY=
-```
-
-## Key Vault Secret Names
-
-The app reads missing secrets from Key Vault only when `USE_KEY_VAULT=true`.
-
-Default secret names:
+Then create secrets in Key Vault with these names:
 
 ```env
 AZURE_OPENAI_KEY_SECRET_NAME=azure-openai-key
@@ -80,63 +97,48 @@ COSMOS_KEY_SECRET_NAME=cosmos-key
 MICROSOFT_ENTRA_CLIENT_SECRET_SECRET_NAME=microsoft-entra-client-secret
 ```
 
-You can change these names in `.env` if your vault uses a different naming convention.
+If you use Key Vault, the app loads the missing keys automatically.
 
-## Managed Identity RBAC
+## Optional: managed identity (for Azure deployment)
 
-When `AZURE_AUTH_MODE=managed_identity`, assign the app identity permissions to each Azure resource.
+For local testing, use `api_key` mode.
 
-Recommended roles:
+Managed identity is only needed when you deploy the app to Azure.
 
-| Resource | Role |
-| --- | --- |
-| Azure OpenAI / Foundry AI Services resource | `Cognitive Services OpenAI User` |
-| Azure AI Search | `Search Index Data Reader` |
-| Cosmos DB | `Cosmos DB Built-in Data Contributor` |
-| Key Vault | `Key Vault Secrets User` |
-
-The app still needs endpoint and deployment/index names in environment variables. Managed identity replaces secret keys; it does not discover resource names automatically.
-
-## Azure AI Search Index
-
-The search adapter expects a retrievable text field and a source/title field.
-
-Defaults:
+If you use it, set:
 
 ```env
-AZURE_SEARCH_CONTENT_FIELD=content
-AZURE_SEARCH_SOURCE_FIELD=source
-AZURE_SEARCH_TOP_K=5
+USE_AZURE_SERVICES=true
+AZURE_AUTH_MODE=managed_identity
+USE_KEY_VAULT=true
+KEY_VAULT_URL=https://<your-vault>.vault.azure.net/
 ```
 
-If your index uses different field names, update those values.
-
-## Cosmos DB Memory
-
-Defaults:
+For a user-assigned identity:
 
 ```env
-COSMOS_DATABASE_NAME=ragbot
-COSMOS_SESSIONS_CONTAINER=sessions
-COSMOS_EPISODIC_CONTAINER=episodic-memory
+MANAGED_IDENTITY_CLIENT_ID=<identity-client-id>
 ```
 
-The app creates the database and containers if they do not already exist. Both containers use `/user_id` as the partition key.
+## Verify Azure setup
 
-## Foundry Note
+Use the backend OpenAPI docs:
 
-This app uses your Azure AI Foundry model deployment through the Azure OpenAI-compatible chat completions API. It is not a Foundry hosted-agent app yet. That is intentional for a simple RAG bot where FastAPI owns orchestration, retrieval, memory, and prompt assembly.
+- `http://localhost:8000/docs`
 
-If you later want Foundry hosted agents, add an adapter behind `ChatCompletionService` that invokes the hosted agent instead of calling chat completions directly.
+Try these API calls:
 
-## Minimal Local Azure Test
+- `POST /sessions` → creates a chat session
+- `GET /sessions` → lists sessions
+- `GET /sessions/{session_id}` → gets session messages
+- `POST /chat/stream` → streams a chat response
 
-1. Copy `apps/api/.env.example` to `apps/api/.env`.
-2. Set `USE_AZURE_SERVICES=true`.
-3. Set `AZURE_AUTH_MODE=api_key`.
-4. Fill in Azure OpenAI, Azure AI Search, and Cosmos DB values.
-5. Start the backend.
-6. Open `http://localhost:8000/docs`.
-7. Test `POST /sessions`.
-8. Test `PUT /memory/episodic`.
-9. Test `POST /chat/stream`.
+If these work, your Azure connection is configured correctly.
+
+## Notes for beginners
+
+- This app works as a simple chatbot POC.
+- You can start with local mock mode first by leaving `USE_AZURE_SERVICES=false`.
+- Then switch to Azure mode by setting `USE_AZURE_SERVICES=true`.
+- You do not need a login or authentication flow for the app.
+- Focus on getting the Azure endpoint keys correct first.
