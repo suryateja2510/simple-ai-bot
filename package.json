@@ -1,0 +1,8 @@
+{
+  "name": "ai-chatbot-poc",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/shared"
+  ]
+}
